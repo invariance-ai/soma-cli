@@ -35,8 +35,27 @@ export type { LoadedRun, WriteRunInput } from "./runs/run-store.js";
 export { renderContextReport } from "./runs/context-report.js";
 
 export { dryRunProvider } from "./providers/dry-run.js";
-export { claudeCliProvider, claudeCliAvailable } from "./providers/claude-cli.js";
+export { claudeCliProvider, claudeCliAvailable, askClaude } from "./providers/claude-cli.js";
 export { citationsFromPack, resolveCitations } from "./providers/citations.js";
+
+// Platform backend access (same data the dashboard shows), shared by CLI + MCP.
+export { PlatformClient, platformClientFromEnv, PlatformError } from "./platform/client.js";
+export type { ReceiptQuery, CodeGraphQuery, PersonActivityQuery } from "./platform/client.js";
+export { resolvePlatformConfig } from "./platform/config.js";
+export type { PlatformConfig, PlatformConfigOverrides } from "./platform/config.js";
+export * from "./platform/types.js";
+export {
+  formatFindings,
+  formatTickets,
+  formatConnectors,
+  formatReceipts,
+  formatCodeGraph,
+  formatPeople,
+  formatPersonActivity,
+} from "./platform/format.js";
+export type { FormatOpts } from "./platform/format.js";
+export { extractPersonQuery, answerPersonQuestion } from "./platform/nl.js";
+export type { PersonAnswer, AnswerOpts } from "./platform/nl.js";
 
 export { remember } from "./remember.js";
 export type { RememberResult, RememberOptions } from "./remember.js";

@@ -6,6 +6,12 @@
   "bin": {
     "soma": "dist/cli/index.js"
   },
+  "exports": {
+    "./agent-core": {
+      "types": "./dist/agent-core/index.d.ts",
+      "import": "./dist/agent-core/index.js"
+    }
+  },
   "files": [
     "dist"
   ],

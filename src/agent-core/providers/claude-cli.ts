@@ -42,6 +42,20 @@ function runClaude(prompt: string, systemPrompt: string, opts: ClaudeCliOptions)
 }
 
 /**
+ * One-shot prompt to the local `claude -p` CLI — a thin reusable wrapper around
+ * the same spawn the provider uses, for callers that have a system+user prompt
+ * already (e.g. the platform NL "what is X doing?" path) and don't need the full
+ * memory PromptPack machinery. Returns the trimmed stdout.
+ */
+export function askClaude(
+  userPrompt: string,
+  systemPrompt: string,
+  opts: ClaudeCliOptions = {},
+): Promise<string> {
+  return runClaude(userPrompt, systemPrompt, opts);
+}
+
+/**
  * Model provider backed by the local `claude -p` CLI (credit-free path; the
  * Anthropic API key is out of credits). Same ModelProvider interface as any
  * other adapter.
