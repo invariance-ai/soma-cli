@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { searchMemory } from "../src/agent-core/index.js";
+import { readMemory, searchMemory, writeMemory } from "../src/agent-core/index.js";
 import { tmpWorkspace, cleanup } from "./helpers.js";
 
 let ws: string;
@@ -24,5 +24,23 @@ describe("memory search", () => {
     ws = tmpWorkspace();
     const hits = searchMemory(ws, "queryability");
     expect(hits[0].snippet).toContain("queryability");
+  });
+
+  it("rejects memory paths that escape the memory root", () => {
+    ws = tmpWorkspace();
+    expect(() => readMemory(ws, "../agent/system.md")).toThrow(/escapes/);
+    expect(() =>
+      writeMemory(
+        ws,
+        "../agent/system.md",
+        {
+          soma_id: "memory:escape",
+          type: "memory",
+          owner: "agent",
+          write_policy: "agent_editable",
+        },
+        "# Escape",
+      ),
+    ).toThrow(/escapes/);
   });
 });

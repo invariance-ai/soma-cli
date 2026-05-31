@@ -33,6 +33,18 @@ function extractHeadings(body: string): string[] {
   return out;
 }
 
+function resolveMemoryPath(workspace: string, relPath: string): { abs: string; rel: string } {
+  const { memory } = somaPaths(workspace);
+  const requested = relPath.endsWith(".md") ? relPath : `${relPath}.md`;
+  const abs = path.resolve(memory, requested);
+  const root = path.resolve(memory);
+  const rel = path.relative(root, abs);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+    throw new Error(`memory path escapes .soma/memory: ${relPath}`);
+  }
+  return { abs, rel };
+}
+
 function toMemoryFile(relPath: string, absPath: string, raw: string): MemoryFile {
   const { meta, body } = parseMemory(raw, relPath);
   return {
@@ -57,10 +69,8 @@ export function readAllMemory(workspace: string): MemoryFile[] {
 
 /** Read a single memory file by its path relative to `.soma/memory`. */
 export function readMemory(workspace: string, relPath: string): MemoryFile | null {
-  const { memory } = somaPaths(workspace);
-  const abs = path.join(memory, relPath.endsWith(".md") ? relPath : `${relPath}.md`);
+  const { abs, rel } = resolveMemoryPath(workspace, relPath);
   if (!fs.existsSync(abs)) return null;
-  const rel = path.relative(memory, abs);
   return toMemoryFile(rel, abs, fs.readFileSync(abs, "utf8"));
 }
 
@@ -71,8 +81,7 @@ export function writeMemory(
   meta: MemoryMeta,
   body: string,
 ): void {
-  const { memory } = somaPaths(workspace);
-  const abs = path.join(memory, relPath.endsWith(".md") ? relPath : `${relPath}.md`);
+  const { abs } = resolveMemoryPath(workspace, relPath);
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, stringifyMemory(meta, body), "utf8");
 }

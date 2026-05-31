@@ -20,7 +20,13 @@ export function readFacts(workspace: string): Fact[] {
   for (const line of fs.readFileSync(factsFile, "utf8").split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    const parsed = FactSchema.safeParse(JSON.parse(trimmed));
+    let json: unknown;
+    try {
+      json = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    const parsed = FactSchema.safeParse(json);
     if (parsed.success) out.push(parsed.data);
   }
   return out;
