@@ -22,7 +22,7 @@ export function ingestPayload(
   const normalized = normalizePayload(source, payload, { receivedAt });
   const fresh = appendNormalizedEvents(workspace, normalized);
   const allEvents = readNormalizedEvents(workspace);
-  const sessions = buildSessions(allEvents);
+  const sessions = buildSessions(allEvents, receivedAt);
   writeSessions(workspace, sessions);
   return {
     rawEventId: raw.id,

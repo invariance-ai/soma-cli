@@ -2,7 +2,10 @@ import type { EntityMention, EntityRef } from "../types.js";
 
 const TICKET_RE = /\b([A-Z][A-Z0-9]+-\d+)\b/g;
 const EMAIL_RE = /\b([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi;
-const SLACK_MENTION_RE = /<@([A-Z0-9]+)>|@([A-Za-z][A-Za-z0-9._-]+)/g;
+// The `@handle` alternative uses a negative lookbehind over the email
+// local-part charset so it doesn't match the `@domain` of an address already
+// captured by EMAIL_RE (e.g. `priya@company.com` must not yield `person:company.com`).
+const SLACK_MENTION_RE = /<@([A-Z0-9]+)>|(?<![A-Za-z0-9._%+-])@([A-Za-z][A-Za-z0-9._-]+)/g;
 const SERVICE_RE = /\b(payments?|checkout|auth|billing|search|platform|infra)\b/gi;
 
 function ref(kind: EntityRef["kind"], id: string, label: string): EntityRef {
@@ -63,6 +66,10 @@ export function entityFromEmail(email: string): EntityRef {
 
 export function entityFromSlackUser(userId: string): EntityRef {
   return ref("person", `person:slack:${userId}`, userId);
+}
+
+export function entityFromGithubUser(login: string): EntityRef {
+  return ref("person", `person:github:${login}`, login);
 }
 
 export function entityFromLinearUser(user: string): EntityRef {

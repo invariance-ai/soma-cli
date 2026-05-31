@@ -2,14 +2,17 @@ import { readNormalizedEvents, readSession, readSessions, studySession } from ".
 import { nowIso } from "../clock.js";
 
 export function cmdSessionsList(workspace: string, opts: { limit?: string; person?: string }): void {
-  const limit = opts.limit ? parseInt(opts.limit, 10) : 12;
+  // Reject non-numeric/garbage limits (e.g. "5x") rather than silently
+  // coercing them; fall back to the default in that case.
+  const parsed = opts.limit ? Number(opts.limit) : 12;
+  const limit = Number.isInteger(parsed) && parsed > 0 ? parsed : 12;
   const person = opts.person?.toLowerCase();
   const sessions = readSessions(workspace)
     .filter((s) => {
       if (!person) return true;
       return s.objectIds.some((id) => id.toLowerCase().includes(person));
     })
-    .slice(0, Number.isFinite(limit) ? limit : 12);
+    .slice(0, limit);
 
   if (sessions.length === 0) {
     console.log("No sessions found.");

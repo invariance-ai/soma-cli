@@ -22,17 +22,27 @@ function uniqueRefs(refs: EntityRef[]): EntityRef[] {
   return out;
 }
 
-function statusFor(lastActivityAt: string, kind: SomaSession["kind"]): SomaSession["status"] {
+function statusFor(lastActivityAt: string, kind: SomaSession["kind"], now: string): SomaSession["status"] {
   if (kind === "meeting") return "closed";
-  const ageMs = Date.now() - Date.parse(lastActivityAt);
+  const ageMs = Date.parse(now) - Date.parse(lastActivityAt);
   if (Number.isFinite(ageMs) && ageMs > 24 * 60 * 60 * 1000) return "quiet";
   return "active";
 }
 
-export function buildSessions(events: SomaEvent[]): SomaSession[] {
+/**
+ * Build sessions deterministically from the full normalized event log. `now`
+ * (an ISO timestamp — the ingest receive time) is injected rather than read
+ * from the wall clock so the same inputs always produce the same sessions.
+ */
+export function buildSessions(events: SomaEvent[], now: string): SomaSession[] {
   const groups = new Map<string, SomaEvent[]>();
+  // Keys whose grouping came from fallbackSession (no explicit session on the
+  // event) — these are the genuinely low-confidence ones, as opposed to a real
+  // session that merely contains the literal token "unknown".
+  const fallbackKeys = new Set<string>();
   for (const event of events) {
     const session = event.session ?? fallbackSession(event);
+    if (!event.session) fallbackKeys.add(session.key);
     const arr = groups.get(session.key) ?? [];
     arr.push(event);
     groups.set(session.key, arr);
@@ -64,8 +74,8 @@ export function buildSessions(events: SomaEvent[]): SomaSession[] {
       sourceRefs: group.map((e) => ({ source: e.source, sourceEventId: e.sourceEventId, url: e.sourceUrl })),
       importanceScore: 0,
       importanceReasons: [],
-      confidence: key.includes(":unknown:") ? 0.35 : 0.8,
-      status: statusFor(last.occurredAt, kind),
+      confidence: fallbackKeys.has(key) ? 0.35 : 0.8,
+      status: statusFor(last.occurredAt, kind, now),
     };
     const decision = scoreSessionImportance(base, group);
     sessions.push({
@@ -81,6 +91,14 @@ export function buildSessions(events: SomaEvent[]): SomaSession[] {
 export function writeSessions(workspace: string, sessions: SomaSession[]): void {
   const dir = somaPaths(workspace).sessions;
   fs.mkdirSync(dir, { recursive: true });
+  const keep = new Set(sessions.map((s) => `${s.id}.json`));
+  // Prune session files no longer produced by the current build, so a change in
+  // grouping can't leave orphaned sessions that readSessions would resurface.
+  for (const file of fs.readdirSync(dir)) {
+    if (file.endsWith(".json") && !keep.has(file)) {
+      fs.rmSync(path.join(dir, file), { force: true });
+    }
+  }
   for (const session of sessions) {
     fs.writeFileSync(path.join(dir, `${session.id}.json`), JSON.stringify(session, null, 2) + "\n", "utf8");
   }

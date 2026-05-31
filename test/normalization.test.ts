@@ -61,6 +61,72 @@ describe("normalization and sessions", () => {
     expect(sessions[0].importanceReasons).toContain("ticket_link");
   });
 
+  it("does not mistake an email domain for a mentioned person", () => {
+    const events = normalizePayload("email", {
+      message_id: "m1",
+      from: "priya@company.com",
+      to: ["ops@company.com"],
+      subject: "Checkout",
+      body: "see @oncall about this",
+    }, { receivedAt: NOW });
+
+    const ids = events[0].mentions.map((m) => m.entity.id);
+    // The real @handle is captured, the email domains are not.
+    expect(ids).toContain("person:oncall");
+    expect(ids).not.toContain("person:company.com");
+  });
+
+  it("normalizes GitHub pull requests as code-review work", () => {
+    const events = normalizePayload("github", {
+      action: "opened",
+      number: 42,
+      pull_request: {
+        number: 42,
+        title: "Fix checkout timeout",
+        html_url: "https://github.com/acme/api/pull/42",
+        user: { login: "priya" },
+        updated_at: NOW,
+      },
+      repository: { full_name: "acme/api" },
+    }, { receivedAt: NOW });
+
+    expect(events[0].kind).toBe("pr_update");
+    expect(events[0].session?.kind).toBe("code_review");
+    expect(events[0].session?.key).toBe("github:acme/api#42");
+    expect(events[0].targets.map((t) => t.id)).toContain("pr:acme/api#42");
+    expect(events[0].actor?.id).toBe("person:github:priya");
+  });
+
+  it("normalizes Datadog logs as log events scoped to a service", () => {
+    const events = normalizePayload("datadog", {
+      id: "evt-1",
+      service: "payments",
+      status: "error",
+      message: "checkout timeout",
+      timestamp: NOW,
+    }, { receivedAt: NOW });
+
+    expect(events[0].kind).toBe("log");
+    expect(events[0].session?.key).toBe("datadog:payments");
+    expect(events[0].targets.map((t) => t.id)).toContain("service:payments");
+  });
+
+  it("dedupes a re-ingested Linear payload that lacks an update timestamp", () => {
+    ws = tmpWorkspace();
+    const payload = {
+      issue: {
+        identifier: "PAY-9",
+        title: "No timestamp",
+        description: "body",
+      },
+    };
+    const first = ingestPayload(ws, "linear", payload, NOW);
+    const second = ingestPayload(ws, "linear", payload, NOW);
+    expect(first.fresh).toHaveLength(1);
+    expect(second.fresh).toHaveLength(0);
+    expect(readNormalizedEvents(ws)).toHaveLength(1);
+  });
+
   it("studies a session into evidence-backed current-state updates", () => {
     ws = tmpWorkspace();
     const result = ingestPayload(ws, "linear", {
