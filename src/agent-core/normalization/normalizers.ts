@@ -1,5 +1,5 @@
 import type { EntityRef, SomaEvent, SourceName } from "../types.js";
-import { entityFromEmail, entityFromLinearUser, entityFromSlackUser, extractMentions } from "./entity-extract.js";
+import { entityFromEmail, entityFromGithubUser, entityFromLinearUser, entityFromSlackUser, extractMentions } from "./entity-extract.js";
 import { asRecord, asString, asStringArray, stableHash, stableId } from "./ids.js";
 
 export interface NormalizeOptions {
@@ -107,8 +107,12 @@ function normalizeLinearOne(raw: unknown, opts: NormalizeOptions): SomaEvent {
   const targets: EntityRef[] = [{ id: `ticket:${id.toUpperCase()}`, kind: "ticket", label: id.toUpperCase() }];
   const assigneeLabel = asString(assignee.email) ?? asString(assignee.name);
   if (assigneeLabel) targets.push(entityFromLinearUser(assigneeLabel));
+  // The update timestamp distinguishes successive edits of the same issue. When
+  // it's absent, fall back to a content hash (not the receive time) so
+  // re-ingesting an identical payload dedupes instead of creating a new event.
+  const revision = asString(r.updated_at) ?? asString(issue.updatedAt) ?? stableHash(raw);
   return eventBase("linear", raw, {
-    sourceEventId: `${id}:${asString(r.updated_at) ?? asString(issue.updatedAt) ?? opts.receivedAt}`,
+    sourceEventId: `${id}:${revision}`,
     sourceUrl: asString(issue.url),
     occurredAt: asString(r.updated_at) ?? asString(issue.updatedAt) ?? asString(issue.createdAt) ?? opts.receivedAt,
     receivedAt: opts.receivedAt,
@@ -119,6 +123,73 @@ function normalizeLinearOne(raw: unknown, opts: NormalizeOptions): SomaEvent {
     targets,
     session: { key: `linear:${id.toUpperCase()}`, kind: "ticket_work" },
     visibility: { scope: "team" },
+  });
+}
+
+/** Coerce a string-or-number id-like field to a string. */
+function asIdLike(value: unknown): string | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return asString(value);
+}
+
+function normalizeGithubOne(raw: unknown, opts: NormalizeOptions): SomaEvent {
+  const r = asRecord(raw);
+  const pr = asRecord(r.pull_request);
+  const issue = asRecord(r.issue);
+  const subject = Object.keys(pr).length ? pr : issue;
+  const repo =
+    asString(asRecord(r.repository).full_name) ?? asString(r.repository) ?? "repo";
+  const number = asIdLike(subject.number) ?? asIdLike(r.number);
+  const action = asString(r.action);
+  const id = number ?? asIdLike(subject.id) ?? stableHash(raw);
+  const isPr = Boolean(Object.keys(pr).length || number);
+  const title = asString(subject.title) ?? `${repo}#${id}`;
+  const body = asString(subject.body) ?? "";
+  const author = asString(asRecord(subject.user).login) ?? asString(asRecord(r.sender).login);
+  // Prefer the subject's update time so re-delivered webhooks for the same
+  // state dedupe; fall back to a content hash, never the receive time.
+  const updatedAt = asString(subject.updated_at);
+  const targets: EntityRef[] = number
+    ? [{ id: `pr:${repo}#${number}`, kind: "pr", label: `${repo}#${number}` }]
+    : [];
+  return eventBase("github", raw, {
+    sourceEventId: `${repo}#${id}:${updatedAt ?? stableHash(raw)}`,
+    sourceUrl: asString(subject.html_url) ?? asString(subject.url),
+    occurredAt: updatedAt ?? asString(subject.created_at) ?? opts.receivedAt,
+    receivedAt: opts.receivedAt,
+    kind: "pr_update",
+    title: action ? `${title} (${action})` : title,
+    text: `${title}\n\n${body}`,
+    actor: author ? entityFromGithubUser(author) : undefined,
+    targets,
+    session: { key: `github:${repo}#${id}`, kind: isPr ? "code_review" : "support_thread" },
+    visibility: { scope: "workspace" },
+  });
+}
+
+function normalizeDatadogOne(raw: unknown, opts: NormalizeOptions): SomaEvent {
+  const r = asRecord(raw);
+  const service =
+    asString(r.service) ?? asString(asRecord(r.attributes).service) ?? "unknown";
+  const status = asString(r.status) ?? asString(r.alert_type) ?? "info";
+  const message =
+    asString(r.message) ?? asString(r.body) ?? asString(r.title) ?? asString(r.msg_text) ?? "";
+  const occurredAt =
+    asString(r.timestamp) ?? asString(r.date) ?? asIdLike(r.date_happened) ?? opts.receivedAt;
+  // Stable id from the event's own identity, never the receive time.
+  const id =
+    asIdLike(r.id) ?? asIdLike(r.alert_id) ?? asIdLike(r.event_id) ?? stableHash({ raw });
+  return eventBase("datadog", raw, {
+    sourceEventId: id,
+    sourceUrl: asString(r.url) ?? asString(r.link),
+    occurredAt,
+    receivedAt: opts.receivedAt,
+    kind: "log",
+    title: `Datadog ${service} [${status}]`,
+    text: message,
+    targets: service !== "unknown" ? [{ id: `service:${service}`, kind: "service", label: service }] : [],
+    session: { key: `datadog:${service}`, kind: "support_thread" },
+    visibility: { scope: "workspace" },
   });
 }
 
@@ -148,8 +219,8 @@ export function normalizePayload(source: SourceName, payload: unknown, opts: Nor
     email: normalizeEmailOne,
     linear: normalizeLinearOne,
     agent: normalizeAgentOne,
-    github: normalizeAgentOne,
-    datadog: normalizeAgentOne,
+    github: normalizeGithubOne,
+    datadog: normalizeDatadogOne,
   } satisfies Record<SourceName, (raw: unknown, opts: NormalizeOptions) => SomaEvent>;
   return values.map((v) => normalizeOne[source](v, opts));
 }
