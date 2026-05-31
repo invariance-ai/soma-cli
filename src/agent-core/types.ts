@@ -227,6 +227,105 @@ export interface Fact {
 }
 
 // ---------------------------------------------------------------------------
+// Normalization, sessions, and study
+// ---------------------------------------------------------------------------
+
+export type SourceName = "slack" | "granola" | "email" | "linear" | "github" | "datadog" | "agent";
+
+export interface EntityRef {
+  id: string;
+  kind: "person" | "service" | "ticket" | "pr" | "session" | "unknown" | string;
+  label: string;
+}
+
+export interface EntityMention {
+  entity: EntityRef;
+  match: string;
+  confidence: number;
+}
+
+export interface SourceRef {
+  source: SourceName;
+  sourceEventId: string;
+  url?: string;
+}
+
+export interface SessionRef {
+  key: string;
+  kind: "person_work" | "ticket_work" | "meeting" | "code_review" | "agent_run" | "support_thread";
+}
+
+export interface SomaEvent {
+  id: string;
+  source: SourceName;
+  sourceEventId: string;
+  sourceUrl?: string;
+  occurredAt: string;
+  receivedAt: string;
+  kind: "message" | "meeting_note" | "email" | "ticket_update" | "pr_update" | "agent_step" | "log" | "trace" | "deploy";
+  title?: string;
+  text?: string;
+  actor?: EntityRef;
+  targets: EntityRef[];
+  mentions: EntityMention[];
+  session?: SessionRef;
+  visibility: {
+    scope: "private" | "channel" | "team" | "workspace";
+    sourceAclRef?: string;
+  };
+  dedupeKey: string;
+  contentHash: string;
+  raw: unknown;
+}
+
+export interface SomaSession {
+  id: string;
+  key: string;
+  kind: SessionRef["kind"];
+  title: string;
+  startedAt: string;
+  endedAt?: string;
+  lastActivityAt: string;
+  eventIds: string[];
+  actorIds: string[];
+  objectIds: string[];
+  sourceRefs: SourceRef[];
+  importanceScore: number;
+  importanceReasons: string[];
+  confidence: number;
+  status: "active" | "quiet" | "closed";
+}
+
+export interface ImportanceDecision {
+  eventId?: string;
+  sessionId?: string;
+  score: number;
+  bucket: "store" | "session" | "summarize" | "study" | "surface";
+  reasons: string[];
+}
+
+export interface StudyResult {
+  sessionId: string;
+  summary: string;
+  involvedEntities: EntityRef[];
+  proposedClaims: Array<{
+    subject: string;
+    predicate: string;
+    object: string;
+    confidence: FactConfidence;
+  }>;
+  currentStateUpdates: Array<{
+    subject: string;
+    summary: string;
+    confidence: FactConfidence;
+  }>;
+  openQuestions: string[];
+  evidenceEventIds: string[];
+  confidence: FactConfidence;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
 // Runs & reporting
 // ---------------------------------------------------------------------------
 
