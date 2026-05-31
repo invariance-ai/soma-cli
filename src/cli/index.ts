@@ -5,6 +5,8 @@ import { cmdAsk } from "./commands/ask.js";
 import { cmdMemorySearch, cmdMemoryRead } from "./commands/memory.js";
 import { cmdRemember } from "./commands/remember.js";
 import { cmdRunsInspect } from "./commands/runs.js";
+import { cmdIngest } from "./commands/ingest.js";
+import { cmdSessionsGet, cmdSessionsList, cmdSessionsStudy } from "./commands/sessions.js";
 
 const program = new Command();
 
@@ -37,6 +39,13 @@ program
   .option("--authorize", "authorize writing human_approved memory files")
   .action((statement, opts) => cmdRemember(ws(), statement, opts));
 
+program
+  .command("ingest <file>")
+  .description("normalize a source fixture/payload into events and sessions")
+  .requiredOption("--source <source>", "source name: slack, granola, email, linear, github, datadog, agent")
+  .option("--received-at <iso>", "override received_at timestamp")
+  .action((file, opts) => cmdIngest(ws(), file, opts));
+
 const memory = program.command("memory").description("inspect memory");
 memory
   .command("search <query>")
@@ -52,6 +61,21 @@ runs
   .command("inspect <which>")
   .description('inspect a run (currently "latest")')
   .action((which) => cmdRunsInspect(ws(), which));
+
+const sessions = program.command("sessions").description("inspect normalized sessions");
+sessions
+  .command("list")
+  .option("-n, --limit <n>", "max sessions", "12")
+  .option("--person <query>", "filter to sessions touching a person id/name")
+  .action((opts) => cmdSessionsList(ws(), opts));
+sessions
+  .command("get <id>")
+  .description("print a session with its normalized events")
+  .action((id) => cmdSessionsGet(ws(), id));
+sessions
+  .command("study <id>")
+  .description("run deterministic session self-study and write .soma/study/<id>.json")
+  .action((id) => cmdSessionsStudy(ws(), id));
 
 program.parseAsync(process.argv).catch((err) => {
   console.error(err instanceof Error ? err.message : String(err));

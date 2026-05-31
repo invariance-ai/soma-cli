@@ -43,3 +43,11 @@ export type { RememberResult, RememberOptions } from "./remember.js";
 
 export { run } from "./runtime.js";
 export type { RunOptions, RunOutput } from "./runtime.js";
+
+export { normalizePayload } from "./normalization/normalizers.js";
+export { ingestPayload } from "./normalization/ingest.js";
+export type { IngestResult } from "./normalization/ingest.js";
+export { readNormalizedEvents } from "./normalization/event-store.js";
+export { buildSessions, readSession, readSessions, writeSessions } from "./normalization/sessionize.js";
+export { scoreEventImportance, scoreSessionImportance } from "./normalization/importance.js";
+export { studySession } from "./normalization/study.js";

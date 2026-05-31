@@ -9,6 +9,11 @@ export interface SomaPaths {
   facts: string; // .soma/facts
   factsFile: string; // .soma/facts/facts.jsonl
   runs: string; // .soma/runs
+  events: string; // .soma/events
+  rawEventsFile: string; // .soma/events/raw.jsonl
+  normalizedEventsFile: string; // .soma/events/normalized.jsonl
+  sessions: string; // .soma/sessions
+  study: string; // .soma/study
 }
 
 export function somaPaths(workspace: string): SomaPaths {
@@ -21,6 +26,11 @@ export function somaPaths(workspace: string): SomaPaths {
     facts: path.join(root, "facts"),
     factsFile: path.join(root, "facts", "facts.jsonl"),
     runs: path.join(root, "runs"),
+    events: path.join(root, "events"),
+    rawEventsFile: path.join(root, "events", "raw.jsonl"),
+    normalizedEventsFile: path.join(root, "events", "normalized.jsonl"),
+    sessions: path.join(root, "sessions"),
+    study: path.join(root, "study"),
   };
 }
 

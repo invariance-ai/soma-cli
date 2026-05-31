@@ -39,6 +39,24 @@ export const TOOLS: Record<string, ToolSpec> = {
     sideEffect: "read",
     cites: false,
   },
+  "sessions.list": {
+    name: "sessions.list",
+    description: "List normalized work sessions by recency, importance, person, or source.",
+    sideEffect: "read",
+    cites: true,
+  },
+  "sessions.get": {
+    name: "sessions.get",
+    description: "Read a normalized session and its evidence event ids.",
+    sideEffect: "read",
+    cites: true,
+  },
+  "sessions.study": {
+    name: "sessions.study",
+    description: "Study a session and propose current-state updates or claims with evidence.",
+    sideEffect: "write",
+    cites: true,
+  },
   "repo.search_files": {
     name: "repo.search_files",
     description: "Search workspace files by name/content.",
@@ -55,12 +73,12 @@ export const TOOLS: Record<string, ToolSpec> = {
 
 /** Tools exposed per task kind — scoped, not global. */
 const SCOPES: Record<TaskKind, string[]> = {
-  ask: ["memory.search", "memory.read"],
-  search: ["memory.search", "memory.read", "repo.search_files", "repo.read_file"],
+  ask: ["memory.search", "memory.read", "sessions.list", "sessions.get"],
+  search: ["memory.search", "memory.read", "sessions.list", "sessions.get", "repo.search_files", "repo.read_file"],
   remember: ["memory.read", "memory.apply_edit", "memory.propose_edit", "facts.append"],
   edit_memory: ["memory.read", "memory.apply_edit", "memory.propose_edit"],
   inspect_run: ["runs.inspect"],
-  tool_action: ["memory.search", "memory.read", "repo.search_files", "repo.read_file"],
+  tool_action: ["memory.search", "memory.read", "sessions.list", "sessions.get", "sessions.study", "repo.search_files", "repo.read_file"],
 };
 
 export function toolsForKind(kind: TaskKind): ToolSpec[] {
