@@ -69,16 +69,68 @@ export const TOOLS: Record<string, ToolSpec> = {
     sideEffect: "read",
     cites: true,
   },
+  "platform.findings": {
+    name: "platform.findings",
+    description: "List assembled findings (error clusters) from the platform backend.",
+    sideEffect: "read",
+    cites: true,
+  },
+  "platform.tickets": {
+    name: "platform.tickets",
+    description: "List tickets across sources (Linear/GitHub) from the platform backend.",
+    sideEffect: "read",
+    cites: true,
+  },
+  "platform.connectors": {
+    name: "platform.connectors",
+    description: "Read connector ingestion status from the platform backend.",
+    sideEffect: "read",
+    cites: false,
+  },
+  "platform.receipts": {
+    name: "platform.receipts",
+    description: "Query raw normalized receipts (events) from the platform backend.",
+    sideEffect: "read",
+    cites: true,
+  },
+  "platform.code_graph": {
+    name: "platform.code_graph",
+    description: "Read the code graph (nodes + edges) from the platform backend.",
+    sideEffect: "read",
+    cites: true,
+  },
+  "platform.people": {
+    name: "platform.people",
+    description: "List people with recent activity, reconstructed from receipts.",
+    sideEffect: "read",
+    cites: true,
+  },
+  "platform.people_activity": {
+    name: "platform.people_activity",
+    description: "What a specific person is doing — recent PRs, commits, tickets, messages.",
+    sideEffect: "read",
+    cites: true,
+  },
 };
+
+const PLATFORM_READ = [
+  "platform.findings",
+  "platform.tickets",
+  "platform.connectors",
+  "platform.receipts",
+  "platform.code_graph",
+  "platform.people",
+  "platform.people_activity",
+];
 
 /** Tools exposed per task kind — scoped, not global. */
 const SCOPES: Record<TaskKind, string[]> = {
-  ask: ["memory.search", "memory.read", "sessions.list", "sessions.get"],
-  search: ["memory.search", "memory.read", "sessions.list", "sessions.get", "repo.search_files", "repo.read_file"],
+  ask: ["memory.search", "memory.read", "sessions.list", "sessions.get", ...PLATFORM_READ],
+  search: ["memory.search", "memory.read", "sessions.list", "sessions.get", "repo.search_files", "repo.read_file", ...PLATFORM_READ],
   remember: ["memory.read", "memory.apply_edit", "memory.propose_edit", "facts.append"],
   edit_memory: ["memory.read", "memory.apply_edit", "memory.propose_edit"],
   inspect_run: ["runs.inspect"],
-  tool_action: ["memory.search", "memory.read", "sessions.list", "sessions.get", "sessions.study", "repo.search_files", "repo.read_file"],
+  tool_action: ["memory.search", "memory.read", "sessions.list", "sessions.get", "sessions.study", "repo.search_files", "repo.read_file", ...PLATFORM_READ],
 };
 
 export function toolsForKind(kind: TaskKind): ToolSpec[] {
