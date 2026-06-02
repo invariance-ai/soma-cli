@@ -15,6 +15,9 @@ import {
   formatCodeGraph,
   formatPeople,
   formatPersonActivity,
+  formatLogs,
+  formatLogStreams,
+  formatDashboards,
 } from "../../agent-core/index.js";
 import type { PlatformClient } from "../../agent-core/index.js";
 
@@ -61,6 +64,41 @@ export function cmdConnectors(source: string | undefined, opts: PlatformOpts): P
     if (source) return formatConnectors([await c.getConnector(source)], opts);
     return formatConnectors(await c.listConnectors(), opts);
   });
+}
+
+export interface LogsCmdOpts extends PlatformOpts {
+  stream?: string;
+  level?: string;
+  service?: string;
+  env?: string;
+  q?: string;
+  since?: string;
+  limit?: string;
+}
+
+export function cmdLogs(opts: LogsCmdOpts): Promise<void> {
+  return withClient(opts, async (c) =>
+    formatLogs(
+      await c.listLogs({
+        stream: opts.stream,
+        level: opts.level,
+        service: opts.service,
+        env: opts.env,
+        q: opts.q,
+        since: opts.since,
+        limit: opts.limit ? Number(opts.limit) : undefined,
+      }),
+      opts,
+    ),
+  );
+}
+
+export function cmdLogStreams(opts: PlatformOpts): Promise<void> {
+  return withClient(opts, async (c) => formatLogStreams(await c.listLogStreams(), opts));
+}
+
+export function cmdDashboards(opts: PlatformOpts): Promise<void> {
+  return withClient(opts, async (c) => formatDashboards(await c.listDashboards(), opts));
 }
 
 export interface ReceiptsCmdOpts extends PlatformOpts {

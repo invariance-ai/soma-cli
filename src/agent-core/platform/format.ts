@@ -8,9 +8,12 @@
 import type {
   ActivityKind,
   BackendFinding,
+  BackendLog,
   BackendTicket,
   CodeGraph,
   ConnectorStatus,
+  Dashboard,
+  LogStreamSummary,
   PersonActivity,
   PersonSummary,
   ReceiptRow,
@@ -34,6 +37,50 @@ function countsLine(counts: Record<ActivityKind, number>): string {
     .filter(([, n]) => n > 0)
     .map(([k, n]) => `${n} ${k}`)
     .join(", ");
+}
+
+export function formatLogs(rows: BackendLog[], o: FormatOpts = {}): string {
+  if (o.json) return json(rows);
+  if (rows.length === 0) return "No logs.";
+  return rows
+    .map((l) => {
+      const lvl = (l.level ?? "info").toUpperCase().padEnd(5);
+      const svc = (l.service ?? "—").padEnd(14);
+      const meta =
+        l.status != null
+          ? `  (${l.status})`
+          : l.duration_ms != null
+            ? `  (${l.duration_ms}ms)`
+            : "";
+      return `${shortTime(l.ts)}  ${lvl} ${svc} ${l.message}${meta}`;
+    })
+    .join("\n");
+}
+
+export function formatLogStreams(rows: LogStreamSummary[], o: FormatOpts = {}): string {
+  if (o.json) return json(rows);
+  if (rows.length === 0) return "No log streams.";
+  return rows
+    .map(
+      (s) =>
+        `${s.name.padEnd(22)} ${String(s.count).padStart(7)} events${
+          s.errorCount ? `  · ${s.errorCount} errors` : ""
+        }`,
+    )
+    .join("\n");
+}
+
+export function formatDashboards(rows: Dashboard[], o: FormatOpts = {}): string {
+  if (o.json) return json(rows);
+  if (rows.length === 0) return "No dashboards.";
+  return rows
+    .map(
+      (d) =>
+        `${d.name.padEnd(24)} ${d.slug.padEnd(20)} ${
+          Array.isArray(d.tiles) ? d.tiles.length : 0
+        } tiles`,
+    )
+    .join("\n");
 }
 
 export function formatFindings(rows: BackendFinding[], o: FormatOpts = {}): string {

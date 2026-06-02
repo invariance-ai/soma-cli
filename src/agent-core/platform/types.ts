@@ -131,3 +131,40 @@ export interface PersonSummary {
 export interface PersonActivity extends PersonSummary {
   timeline: ActivityEvent[];
 }
+
+// ---- Logs / telemetry ----
+
+export interface LogStreamSummary {
+  id: string;
+  name: string;
+  kind: string;
+  description: string;
+  count: number;
+  errorCount: number;
+}
+
+export interface BackendLog {
+  id: string;
+  stream: string;
+  level: string | null;
+  service: string | null;
+  env: string | null;
+  source: string | null;
+  message: string;
+  trace_id: string | null;
+  span_id: string | null;
+  duration_ms: number | null;
+  status: number | null;
+  ts: string;
+}
+
+// ---- Dashboards ----
+
+export interface Dashboard {
+  id: string;
+  name: string;
+  slug: string;
+  tiles: unknown[];
+  is_default: boolean;
+  updated_at: string;
+}

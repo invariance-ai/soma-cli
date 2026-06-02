@@ -7,9 +7,12 @@
 import { resolvePlatformConfig, type PlatformConfig, type PlatformConfigOverrides } from "./config.js";
 import type {
   BackendFinding,
+  BackendLog,
   BackendTicket,
   CodeGraph,
   ConnectorStatus,
+  Dashboard,
+  LogStreamSummary,
   PersonActivity,
   PersonSummary,
   ReceiptRow,
@@ -23,6 +26,16 @@ export interface ReceiptQuery {
   businessObjectId?: string;
   limit?: number;
   includePayload?: boolean;
+}
+
+export interface LogQuery {
+  stream?: string;
+  level?: string;
+  service?: string;
+  env?: string;
+  q?: string;
+  since?: string;
+  limit?: number;
 }
 
 export interface CodeGraphQuery {
@@ -114,6 +127,30 @@ export class PlatformClient {
         include: q.includePayload ? "payload" : undefined,
       })
     ).receipts;
+  }
+
+  async listLogs(q: LogQuery = {}): Promise<BackendLog[]> {
+    return (
+      await this.get<{ logs: BackendLog[] }>("/v1/logs", {
+        stream: q.stream,
+        level: q.level,
+        service: q.service,
+        env: q.env,
+        q: q.q,
+        since: q.since,
+        limit: q.limit?.toString(),
+      })
+    ).logs;
+  }
+
+  async listLogStreams(): Promise<LogStreamSummary[]> {
+    return (await this.get<{ streams: LogStreamSummary[] }>("/v1/logs/streams", {}))
+      .streams;
+  }
+
+  async listDashboards(): Promise<Dashboard[]> {
+    return (await this.get<{ dashboards: Dashboard[] }>("/v1/dashboards", {}))
+      .dashboards;
   }
 
   async getCodeGraph(q: CodeGraphQuery = {}): Promise<CodeGraph> {
