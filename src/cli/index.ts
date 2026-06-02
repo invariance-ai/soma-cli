@@ -15,6 +15,9 @@ import {
   cmdCodeGraph,
   cmdPeople,
   cmdWho,
+  cmdLogs,
+  cmdLogStreams,
+  cmdDashboards,
 } from "./commands/platform.js";
 
 const program = new Command();
@@ -163,6 +166,27 @@ platformFlags(
     .option("--since <iso>", "only receipts on/after this time")
     .option("-n, --limit <n>", "max rows", "100"),
 ).action((opts) => cmdReceipts(plat(opts)));
+
+platformFlags(
+  data
+    .command("logs")
+    .description("query logs / traces / sessions (telemetry)")
+    .option("--stream <stream>", "logs | access | trace | session | agent")
+    .option("--level <level>", "debug | info | warn | error")
+    .option("--service <service>", "filter by service")
+    .option("--env <env>", "prod | staging")
+    .option("--q <text>", "search the message")
+    .option("--since <iso>", "only logs on/after this time")
+    .option("-n, --limit <n>", "max rows", "100"),
+).action((opts) => cmdLogs(plat(opts)));
+
+platformFlags(
+  data.command("streams").description("summarize log/telemetry streams"),
+).action((opts) => cmdLogStreams(plat(opts)));
+
+platformFlags(
+  program.command("dashboards").description("list saved visualization dashboards"),
+).action((opts) => cmdDashboards(plat(opts)));
 
 program.parseAsync(process.argv).catch((err) => {
   console.error(err instanceof Error ? err.message : String(err));
