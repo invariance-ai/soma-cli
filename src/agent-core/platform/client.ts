@@ -49,6 +49,30 @@ export interface PersonActivityQuery {
   limit?: number;
 }
 
+/** Citation IDs attached to an answer clause (all optional, all real IDs). */
+export interface AskCitation {
+  receiptIds?: string[];
+  chunkIds?: string[];
+  sessionIds?: string[];
+  entityIds?: string[];
+  artifactIds?: string[];
+  toolCallIds?: string[];
+  mutationIds?: string[];
+  note?: string;
+}
+
+/** Shape of `POST /v1/ask`'s response (the fields the CLI renders). */
+export interface AskAnswer {
+  answer: {
+    question: string;
+    is_abstention: boolean;
+    answer_clauses: Array<{ text: string; citations: AskCitation[] }>;
+    missing_evidence?: string[];
+    entities?: Array<{ entity_id: string; display_name?: string }>;
+  };
+  run_id: string;
+}
+
 /** Raised when the backend returns a non-2xx response. `status` is the HTTP code. */
 export class PlatformError extends Error {
   constructor(
@@ -163,6 +187,44 @@ export class PlatformClient {
 
   async listPeople(since?: string): Promise<PersonSummary[]> {
     return (await this.get<{ people: PersonSummary[] }>("/v1/people", { since })).people;
+  }
+
+  /**
+   * Ask the backend's memory query path (`POST /v1/ask`) and get a cited
+   * answer. This is the terminal-friendly ask surface — it works with or
+   * without an LLM key (the backend falls back to deterministic recall).
+   */
+  async ask(query: string): Promise<AskAnswer> {
+    const url = new URL("/v1/ask", this.cfg.baseUrl);
+    url.searchParams.set("workspace_id", this.cfg.workspaceId);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${this.cfg.adminToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ query }),
+      });
+    } catch (err) {
+      throw new PlatformError(
+        `cannot reach Soma backend at ${this.cfg.baseUrl} (${err instanceof Error ? err.message : String(err)})`,
+        0,
+        "/v1/ask",
+      );
+    }
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const body = (await res.json()) as { error?: { message?: string } };
+        detail = body?.error?.message ? `: ${body.error.message}` : "";
+      } catch {
+        /* non-json body */
+      }
+      throw new PlatformError(`POST /v1/ask → ${res.status}${detail}`, res.status, "/v1/ask");
+    }
+    return (await res.json()) as AskAnswer;
   }
 
   /** Returns null when nobody matches (backend 404), rather than throwing. */
