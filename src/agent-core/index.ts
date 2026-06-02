@@ -40,7 +40,7 @@ export { citationsFromPack, resolveCitations } from "./providers/citations.js";
 
 // Platform backend access (same data the dashboard shows), shared by CLI + MCP.
 export { PlatformClient, platformClientFromEnv, PlatformError } from "./platform/client.js";
-export type { ReceiptQuery, CodeGraphQuery, PersonActivityQuery, LogQuery } from "./platform/client.js";
+export type { ReceiptQuery, CodeGraphQuery, PersonActivityQuery, LogQuery, AskAnswer, AskCitation } from "./platform/client.js";
 export { resolvePlatformConfig } from "./platform/config.js";
 export type { PlatformConfig, PlatformConfigOverrides } from "./platform/config.js";
 export * from "./platform/types.js";

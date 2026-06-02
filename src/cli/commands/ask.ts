@@ -18,6 +18,41 @@ export async function cmdAsk(
   question: string,
   opts: { dryRun?: boolean; model?: string; json?: boolean; workspaceId?: string; backend?: string },
 ): Promise<void> {
+  // Primary terminal ask surface: the backend's `/v1/ask` memory query. It
+  // returns a cited answer and works with or without an LLM key. Skipped in
+  // --dry-run (which exercises the local memory-prompt path). Any backend
+  // unavailability falls through to the local person/memory paths below.
+  if (!opts.dryRun) {
+    try {
+      const client = platformClientFromEnv({ workspaceId: opts.workspaceId, baseUrl: opts.backend });
+      const result = await client.ask(question);
+      if (opts.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        const clause = result.answer.answer_clauses[0];
+        console.log(clause?.text ?? "(no grounded answer)");
+        const cited = clause?.citations?.[0];
+        const citedIds = [
+          ...(cited?.receiptIds ?? []),
+          ...(cited?.chunkIds ?? []),
+          ...(cited?.entityIds ?? []),
+        ];
+        if (citedIds.length) {
+          console.log("\nCitations:");
+          for (const id of citedIds.slice(0, 12)) console.log(`  - ${id}`);
+        }
+        console.log(`\n[ask ${result.run_id} · backend]`);
+      }
+      return;
+    } catch (err) {
+      if (err instanceof PlatformError) {
+        console.error(`note: backend ask unavailable (${err.message}) — falling back to memory.\n`);
+      } else {
+        throw err;
+      }
+    }
+  }
+
   // People questions ("what is andy doing?") route through the platform: fetch
   // the person's deterministic activity, then let the model summarize it. This
   // is skipped in --dry-run (which exercises the memory-prompt path).
