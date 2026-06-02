@@ -27,6 +27,46 @@ function json(data: unknown): string {
   return JSON.stringify(data, null, 2);
 }
 
+/**
+ * Connector → category, mirroring the dashboard registry (soma-platform
+ * src/lib/connectors.ts) so the CLI groups connectors the same way the UI does.
+ * Plain data (no icons) since the CLI renders text.
+ */
+type ConnectorCategory =
+  | "code"
+  | "observability"
+  | "tickets"
+  | "conversations"
+  | "agents"
+  | "other";
+
+const CONNECTOR_CATEGORY: Record<string, ConnectorCategory> = {
+  github: "code",
+  code_graph: "code",
+  sentry: "observability",
+  datadog: "observability",
+  otel: "observability",
+  pagerduty: "observability",
+  linear: "tickets",
+  slack: "conversations",
+  docs: "conversations",
+  sdk: "agents",
+  launchdarkly: "agents",
+};
+
+const CATEGORY_ORDER: ConnectorCategory[] = [
+  "code",
+  "observability",
+  "tickets",
+  "conversations",
+  "agents",
+  "other",
+];
+
+function categoryOf(source: string): ConnectorCategory {
+  return CONNECTOR_CATEGORY[source] ?? "other";
+}
+
 function shortTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   return iso.replace("T", " ").replace(/\.\d+Z$/, "Z");
@@ -105,15 +145,25 @@ export function formatTickets(rows: BackendTicket[], o: FormatOpts = {}): string
 }
 
 export function formatConnectors(rows: ConnectorStatus[], o: FormatOpts = {}): string {
+  // --json stays byte-stable (raw rows) so MCP structuredContent never drifts.
   if (o.json) return json(rows);
   if (rows.length === 0) return "No connectors.";
-  return rows
-    .map((c) => {
-      const verified = c.verified ? "✓" : c.first_event_at ? "·" : "…";
-      const err = c.last_error ? `  ⚠ ${c.last_error}` : "";
-      return `${verified} ${c.source.padEnd(13)} ${c.status.padEnd(13)} ${String(c.event_count).padStart(6)} events · last ${shortTime(c.last_event_at)}${err}`;
-    })
-    .join("\n");
+
+  const line = (c: ConnectorStatus): string => {
+    const verified = c.verified ? "✓" : c.first_event_at ? "·" : "…";
+    const err = c.last_error ? `  ⚠ ${c.last_error}` : "";
+    return `  ${verified} ${c.source.padEnd(13)} ${c.status.padEnd(13)} ${String(c.event_count).padStart(6)} events · last ${shortTime(c.last_event_at)}${err}`;
+  };
+
+  // Group by category to match the dashboard's connector grid.
+  const out: string[] = [];
+  for (const category of CATEGORY_ORDER) {
+    const group = rows.filter((c) => categoryOf(c.source) === category);
+    if (group.length === 0) continue;
+    out.push(`${category}:`);
+    for (const c of group) out.push(line(c));
+  }
+  return out.join("\n");
 }
 
 export function formatReceipts(rows: ReceiptRow[], o: FormatOpts = {}): string {
@@ -167,7 +217,8 @@ export function formatPersonActivity(a: PersonActivity, o: FormatOpts = {}): str
     .map((e) => {
       const url = e.url ? `  ${e.url}` : "";
       const obj = e.businessObject ? ` @${e.businessObject}` : "";
-      return `  ${shortTime(e.occurredAt)}  ${e.activity.padEnd(9)} ${e.title ?? e.kind}${obj}${url}`;
+      const src = e.source ? `[${e.source}] ` : "";
+      return `  ${shortTime(e.occurredAt)}  ${e.activity.padEnd(9)} ${src}${e.title ?? e.kind}${obj}${url}`;
     });
   return [header, window, aliases, "", "Recent:", ...lines].filter(Boolean).join("\n");
 }
